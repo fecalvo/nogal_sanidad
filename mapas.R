@@ -41,6 +41,7 @@ ggplot() +
   ylab("") +
   theme_bw() 
 dev.off()
+
 help("annotate")
 data <- readxl::read_excel("ARG/coordenadas.xlsx")
 
