@@ -11,35 +11,37 @@ tabla <- tabla %>%
 
 #dejé 5 clases porque con 3 quedaba toda la frecuencia en la intermedia
 classIntervals(tabla$LAT , n=5, style="fisher")
-tabla$LAT_dis <- 0
-tabla$LAT_dis[tabla$LAT > 32 & tabla$LAT < 32.948] <- "LAT_1"
-tabla$LAT_dis[tabla$LAT > 32.948 & tabla$LAT < 33.3605] <- "LAT_2"
-tabla$LAT_dis[tabla$LAT >= 33.3605 & tabla$LAT < 33.6565] <- "LAT_3"
-tabla$LAT_dis[tabla$LAT >= 33.6565 & tabla$LAT < 34.2075] <- "LAT_4"
-tabla$LAT_dis[tabla$LAT >= 34.2075] <- "LAT_5"
-misf <- sf::read_sf("provincia-de-mendoza-shp.shp")
+classIntervals(tabla$LON , n=3, style="fisher")
 
 jpeg("graf/mapa_lat.jpeg", width = 4000, height = 4000, 
      units = "px", res = 800) 
 ggplot() +
   geom_sf(data = misf, fill = "white", color = "black") +
-  geom_hline(yintercept = -32.695, size = 0.3) +
-  geom_hline(yintercept = -32.984, size = 0.3) +
-  geom_hline(yintercept = -33.3605, size = 0.3) +
-  geom_hline(yintercept = -33.6565, size = 0.3) +
-  geom_hline(yintercept = -34.2075, size = 0.3) + 
-  geom_hline(yintercept = -34.618, size = 0.3) +
+  geom_hline(yintercept = -32.695, size = 0.3, color = "red") +
+  geom_hline(yintercept = -32.984, size = 0.3, color = "red") +
+  geom_hline(yintercept = -33.3605, size = 0.3, color = "red") +
+  geom_hline(yintercept = -33.6565, size = 0.3, color = "red") +
+  geom_hline(yintercept = -34.2075, size = 0.3, color = "red") + 
+  geom_hline(yintercept = -34.618, size = 0.3, color = "red") +
   annotate(geom = "text", x = -65.8, y = -32.83, label = "LAT 1") +
   annotate(geom = "text", x = -65.8, y = -33.154, label = "LAT 2") +
   annotate(geom = "text", x = -65.8, y = -33.50, label = "LAT 3") +
   annotate(geom = "text", x = -65.8, y = -33.96, label = "LAT 4") +
   annotate(geom = "text", x = -65.8, y = -34.432, label = "LAT 5") +
+  geom_vline(xintercept = -68.464, size = 0.3, color = "red") +
+  geom_vline(xintercept = -68.7385, size = 0.3, color = "red") +
+  geom_vline(xintercept = -69.1135, size = 0.3, color = "red") +
+  geom_vline(xintercept = -69.311, size = 0.3, color = "red") +
+  annotate(geom = "text", x = -69.21, y = -38, label = "LON 3", angle = 90, size = 4) +
+  annotate(geom = "text", x = -68.92, y = -38, label = "LON 2", angle = 90, size = 4) +
+  annotate(geom = "text", x = -68.60, y = -38, label = "LON 1", angle = 90, size = 4) +
   xlim(-71, -65) +
+  ylim(-39 , -32) +
   xlab("") +
   ylab("") +
   theme_bw() 
 dev.off()
-
+help("annotate")
 data <- readxl::read_excel("ARG/coordenadas.xlsx")
 
 cbind(ubi, numero) %>% 
