@@ -4,26 +4,13 @@ library(gplots)
 library(classInt)
 
 #leer tabla original (hice algunas modificaciones agregando 0s)
-tabla <- readxl::read_excel("relevamiento.xlsx")
+tabla <- readxl::read_excel("tablas/relevamiento.xlsx")
 
-#discretización latitud
-tabla <- tabla %>% 
-  mutate(LAT = LAT*(-1),
-         LON = LON*(-1))
-
-#dejé 5 clases porque con 3 quedaba toda la frecuencia en la intermedia
-classIntervals(tabla$LAT , n=5, style="fisher")
-tabla$LAT_dis <- 0
-tabla$LAT_dis[tabla$LAT > 32 & tabla$LAT < 32.948] <- "LAT_1"
-tabla$LAT_dis[tabla$LAT > 32.948 & tabla$LAT < 33.3605] <- "LAT_2"
-tabla$LAT_dis[tabla$LAT >= 33.3605 & tabla$LAT < 33.6565] <- "LAT_3"
-tabla$LAT_dis[tabla$LAT >= 33.6565 & tabla$LAT < 34.2075] <- "LAT_4"
-tabla$LAT_dis[tabla$LAT >= 34.2075] <- "LAT_5"
-
-#frecuencia por latitud
+#frecuencia por manejo
 tabla_a <- tabla %>% 
-  group_by(LAT_dis) %>% 
-  summarise(colletotrechum = sum(colletotrechum),
+  group_by(nivel_manejo) %>% 
+  summarise(alternaria_sp = sum(alternaria_sp), 
+            colletotrechum = sum(colletotrechum),
             colonia_6 = sum(colonia_6),
             colonia_35 = sum(colonia_35),
             d_mutila = sum(d_mutila),
@@ -31,8 +18,8 @@ tabla_a <- tabla %>%
   as.data.frame()
 
 tabla_1 <- tabla_a
-rownames(tabla_1) = tabla_1$LAT_dis
-tabla_1 <- tabla_1[2:6]
+rownames(tabla_1) = tabla_1$nivel_manejo
+tabla_1 <- tabla_1[2:7]
 dt <- as.table(as.matrix(tabla_1))
 
 jpeg("graf/proporciones1.jpeg", width = 4000, height = 3000, res = 400)
@@ -41,10 +28,82 @@ balloonplot(t(dt), main = "", xlab ="", ylab="",
 dev.off()
 
 # test chi cuadrado (para evaluar dependencia entre filas y columnas)
-chisq <- chisq.test(tabla_1)
-chisq
+resultados <- data.frame(
+  especie = character(),
+  chi2 = numeric(),
+  p_valor = numeric(),
+  stringsAsFactors = FALSE
+)
+# Loop por cada especie (columna)
+for (col in colnames(tabla_1)) {
+  # Contingencia entre nivel_manejo y presencia de la especie
+  tabla_cont <- table(tabla$nivel_manejo, tabla[[col]])
+  
+  # Solo ejecutar test si hay más de un valor único
+  if (ncol(tabla_cont) > 1) {
+    test <- chisq.test(tabla_cont)
+    
+    # Agregar resultados
+    resultados <- rbind(resultados, data.frame(
+      especie = col,
+      chi2 = unname(test$statistic),
+      p_valor = test$p.value
+    ))
+  }
+}
 
-##### Discretización por latitud
+# Mostrar resultados ordenados por p-valor
+resultados <- resultados %>% arrange(p_valor)
+#según nivel de manejo
+print(resultados)
+
+
+######################################
+#test por momento
+
+# Balloonplot por estación (está bien hacer esto)
+tabla_b <- tabla %>% 
+  group_by(estacion) %>% 
+  summarise(across(c(alternaria_sp, colletotrechum, colonia_6, colonia_35, d_mutila, d_seriata), sum)) %>% 
+  as.data.frame()
+
+tabla_2 <- tabla_b
+rownames(tabla_2) = tabla_2$estacion
+tabla_2 <- tabla_2[2:7]
+dt_2 <- as.table(as.matrix(tabla_2))
+
+jpeg("graf/proporciones1.jpeg", width = 4000, height = 3000, res = 400)
+balloonplot(t(dt_2[,2:6]), main = "", xlab ="", ylab="", label = FALSE, show.margins = FALSE)
+dev.off()
+
+# Test chi2 por especie vs estacion (usando datos originales)
+resultados_2 <- data.frame(
+  especie = character(),
+  chi2 = numeric(),
+  p_valor = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Loop
+for (col in c("alternaria_sp", "colletotrechum", "colonia_6", "colonia_35", "d_mutila", "d_seriata")) {
+  tabla_cont <- table(tabla$estacion, tabla[[col]])
+  if (ncol(tabla_cont) > 1) {
+    test <- chisq.test(tabla_cont)
+    resultados_2 <- rbind(resultados_2, data.frame(
+      especie = col,
+      chi2 = unname(test$statistic),
+      p_valor = test$p.value
+    ))
+  }
+}
+
+# Ordenar resultados
+resultados_2 <- resultados_2 %>% arrange(p_valor)
+#según momento de colecta
+print(resultados_2)
+
+
+
 
 tabla$LAT_dis <- 0
 tabla$LAT_dis[tabla$LAT > 32 & tabla$LAT < 33.3605] <- "LAT_1"
