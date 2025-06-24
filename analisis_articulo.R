@@ -5,6 +5,7 @@ library(classInt)
 library(emmeans)
 library(multcompView)
 library(multcomp)
+library(reshape2)
 
 #leer tabla original (hice algunas modificaciones agregando 0s)
 tabla <- readxl::read_excel("tablas/relevamiento.xlsx")
@@ -75,11 +76,9 @@ dev.off()
 
 ######################################
 
-#leer tabla original (hice algunas modificaciones agregando 0s)
-##################
-# Agrupás sumando
 freq_t5 <- tabla %>%
   filter(sintoma != "S/S") %>% 
+  mutate(nivel_manejo = as.factor(nivel_manejo)) %>% 
   group_by(nivel_manejo, sintoma) %>%
   summarise(freq = sum(`Dardos recolectados por síntoma`))
 
@@ -88,24 +87,60 @@ dt_5 <- xtabs(freq ~ nivel_manejo + sintoma, data = freq_t5)
 
 # Test chi²
 test <- chisq.test(dt_5)
+chi2_val <- round(test$statistic, 2)
 p_valor <- round(test$p.value, digits = 4)
 print(test)
 
+# Convertir tabla cruzada a data frame largo
+df_heat <- as.data.frame(as.table(dt_5))
 
-# Usás la tabla cruzada que creaste con xtabs:
-jpeg("graf/balloonplot_manejo.jpeg", width = 4000, height = 3000, res = 400)
-
-balloonplot(t(dt_5), 
-            main = "Frecuencia de síntomas por nivel de manejo",
-            xlab = "Sintoma", 
-            ylab = "Nivel de manejo",
-            label = T, 
-            show.margins = FALSE)
-# Agregar leyenda con resultado global
-legend("topleft", 
-       legend = paste0("χ² = ", chi2_val, ", p = ", p_valor),
-       bty = "n", cex = 0.8)
+# Graficar heatmap
+jpeg("graf/heatmal_estacion.jpeg", width = 4000, height = 3000, res = 800)
+ggplot(df_heat, aes(x = sintoma, y = nivel_manejo, fill = Freq)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "red") +
+  geom_text(aes(label = Freq), color = "black", size = 3) +
+  labs(
+    title = "Heatmap de síntomas por nivel de manejo",
+    x = "Síntoma",
+    y = "Nivel de manejo",
+    fill = "Frecuencia"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.off()
+
+# Lista de síntomas únicos
+sintomas <- unique(freq_t5$sintoma)
+
+# Iterar sobre cada síntoma
+for (s in sintomas) {
+  cat("\n\n### Síntoma:", s, "###\n")
+  
+  # Filtrar datos para ese síntoma
+  datos_s <- freq_t5 %>% filter(sintoma == s)
+  
+  if (n_distinct(datos_s$nivel_manejo) > 1) {
+    # Crear tabla cruzada
+    tabla_s <- xtabs(freq ~ nivel_manejo, data = datos_s)
+    
+    # Test chi-cuadrado
+    test <- suppressWarnings(chisq.test(tabla_s))  # suppressWarnings para valores esperados < 5
+    chi2_val <- round(test$statistic, 2)
+    p_valor <- signif(test$p.value, 3)
+    
+    cat(paste("Chi² =", chi2_val, "| p =", p_valor, "\n"))
+    
+    # Modelo GLM
+    modelo <- glm(freq ~ nivel_manejo, family = "poisson", data = datos_s)
+    emm <- emmeans(modelo, ~ nivel_manejo)
+    cld_result <- cld(emm, Letters = letters)
+    
+    print(cld_result)
+  } else {
+    cat("No hay suficientes estaciones para comparar.\n")
+  }
+}
 
 ######################################
 freq_t6 <- tabla %>%
@@ -122,30 +157,11 @@ chi2_val <- round(test$statistic, 2)
 p_valor <- round(test$p.value, digits = 4)
 print(test)
 
-
-# Usás la tabla cruzada que creaste con xtabs:
-jpeg("graf/balloonplot_estacion.jpeg", width = 4000, height = 3000, res = 400)
-
-balloonplot(t(dt_6), 
-            main = "Frecuencia de síntomas por nivel de manejo",
-            xlab = "Sintoma", 
-            ylab = "Nivel de manejo",
-            label = T, 
-            show.margins = FALSE)
-# Agregar leyenda con resultado global
-legend("topleft", 
-       legend = paste0("χ² = ", chi2_val, ", p = ", p_valor),
-       bty = "n", cex = 0.8)
-dev.off()
-
-
-# Instalar si es necesario
-if (!require("reshape2")) install.packages("reshape2")
-
 # Convertir tabla cruzada a data frame largo
 df_heat <- as.data.frame(as.table(dt_6))
 
 # Graficar heatmap
+jpeg("graf/heatmal_estacion.jpeg", width = 4000, height = 3000, res = 800)
 ggplot(df_heat, aes(x = sintoma, y = estacion, fill = Freq)) +
   geom_tile(color = "white") +
   scale_fill_gradient(low = "white", high = "red") +
@@ -158,7 +174,7 @@ ggplot(df_heat, aes(x = sintoma, y = estacion, fill = Freq)) +
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
+dev.off()
 
 # Lista de síntomas únicos
 sintomas <- unique(freq_t6$sintoma)
