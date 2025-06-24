@@ -6,101 +6,136 @@ library(classInt)
 #leer tabla original (hice algunas modificaciones agregando 0s)
 tabla <- readxl::read_excel("tablas/relevamiento.xlsx")
 
-#frecuencia por manejo
-tabla_a <- tabla %>% 
-  group_by(nivel_manejo) %>% 
-  summarise(alternaria_sp = sum(alternaria_sp), 
-            colletotrechum = sum(colletotrechum),
-            colonia_6 = sum(colonia_6),
-            colonia_35 = sum(colonia_35),
-            d_mutila = sum(d_mutila),
-            d_seriata = sum(d_seriata)) %>% 
-  as.data.frame()
+##################
+tabla_3 <- pivot_longer(tabla, cols = 11:17, names_to = "tipo_s", values_to = "conteo")
 
-tabla_1 <- tabla_a
-rownames(tabla_1) = tabla_1$nivel_manejo
-tabla_1 <- tabla_1[2:7]
-dt <- as.table(as.matrix(tabla_1))
+# Agrupás sumando
+freq_t3 <- tabla_3 %>%
+  group_by(nivel_manejo, sintoma) %>%
+  filter(sintoma != "S/S") %>% 
+  summarise(freq = sum(conteo), .groups = "drop")
 
-jpeg("graf/proporciones1.jpeg", width = 4000, height = 3000, res = 400)
-balloonplot(t(dt), main = "", xlab ="", ylab="",
-            label = FALSE, show.margins = FALSE)
+# Convertís a tabla cruzada (matriz de contingencia)
+dt_3 <- xtabs(freq ~ nivel_manejo + sintoma, data = freq_t3)
+
+# Test chi²
+test <- chisq.test(dt_3)
+p_valor <- round(test$p.value, digits = 4)
+print(test)
+
+
+# Usás la tabla cruzada que creaste con xtabs:
+jpeg("graf/balloonplot_manejo.jpeg", width = 4000, height = 3000, res = 400)
+
+balloonplot(t(dt_3), 
+            main = "Frecuencia de síntomas por nivel de manejo",
+            xlab = "Sintoma", 
+            ylab = "Nivel de manejo",
+            label = T, 
+            show.margins = FALSE)
+# Agregar leyenda con resultado global
+legend("topleft", 
+       legend = paste0("χ² = ", chi2_val, ", p = ", p_valor),
+       bty = "n", cex = 0.8)
 dev.off()
-
-# test chi cuadrado (para evaluar dependencia entre filas y columnas)
-resultados <- data.frame(
-  especie = character(),
-  chi2 = numeric(),
-  p_valor = numeric(),
-  stringsAsFactors = FALSE
-)
-# Loop por cada especie (columna)
-for (col in colnames(tabla_1)) {
-  # Contingencia entre nivel_manejo y presencia de la especie
-  tabla_cont <- table(tabla$nivel_manejo, tabla[[col]])
-  
-  # Solo ejecutar test si hay más de un valor único
-  if (ncol(tabla_cont) > 1) {
-    test <- chisq.test(tabla_cont)
-    
-    # Agregar resultados
-    resultados <- rbind(resultados, data.frame(
-      especie = col,
-      chi2 = unname(test$statistic),
-      p_valor = test$p.value
-    ))
-  }
-}
-
-# Mostrar resultados ordenados por p-valor
-resultados <- resultados %>% arrange(p_valor)
-#según nivel de manejo
-print(resultados)
-
 
 ######################################
-#test por momento
 
-# Balloonplot por estación (está bien hacer esto)
-tabla_b <- tabla %>% 
-  group_by(estacion) %>% 
-  summarise(across(c(alternaria_sp, colletotrechum, colonia_6, colonia_35, d_mutila, d_seriata), sum)) %>% 
-  as.data.frame()
+# Agrupás sumando
+freq_t4 <- tabla_3 %>%
+  filter(sintoma != "S/S") %>% 
+  group_by(estacion, sintoma) %>%
+  summarise(freq = sum(conteo), .groups = "drop")
 
-tabla_2 <- tabla_b
-rownames(tabla_2) = tabla_2$estacion
-tabla_2 <- tabla_2[2:7]
-dt_2 <- as.table(as.matrix(tabla_2))
+# Convertís a tabla cruzada (matriz de contingencia)
+dt_4 <- xtabs(freq ~ estacion + sintoma, data = freq_t4)
 
-jpeg("graf/proporciones1.jpeg", width = 4000, height = 3000, res = 400)
-balloonplot(t(dt_2[,2:6]), main = "", xlab ="", ylab="", label = FALSE, show.margins = FALSE)
+# Paso 3: Test chi² global
+test <- chisq.test(dt_4)
+p_valor <- round(test$p.value, digits = 4)
+chi2_val <- round(test$statistic, 2)
+
+# Paso 4: Balloonplot con leyenda del test global
+jpeg("graf/balloonplot_estacion.jpeg", width = 4000, height = 3000, res = 400)
+balloonplot(t(dt_4), 
+            main = "Frecuencia de síntomas por estación",
+            xlab = "Síntoma", 
+            ylab = "Estación",
+            label = T, 
+            show.margins = FALSE)
+
+# Agregar leyenda con resultado global
+legend("topleft", 
+       legend = paste0("χ² = ", chi2_val, ", p = ", p_valor),
+       bty = "n", cex = 0.8)
 dev.off()
 
-# Test chi2 por especie vs estacion (usando datos originales)
-resultados_2 <- data.frame(
-  especie = character(),
-  chi2 = numeric(),
-  p_valor = numeric(),
-  stringsAsFactors = FALSE
-)
+######################################
 
-# Loop
-for (col in c("alternaria_sp", "colletotrechum", "colonia_6", "colonia_35", "d_mutila", "d_seriata")) {
-  tabla_cont <- table(tabla$estacion, tabla[[col]])
-  if (ncol(tabla_cont) > 1) {
-    test <- chisq.test(tabla_cont)
-    resultados_2 <- rbind(resultados_2, data.frame(
-      especie = col,
-      chi2 = unname(test$statistic),
-      p_valor = test$p.value
-    ))
-  }
-}
+#leer tabla original (hice algunas modificaciones agregando 0s)
+##################
+# Agrupás sumando
+freq_t5 <- tabla %>%
+  filter(sintoma != "S/S") %>% 
+  group_by(nivel_manejo, sintoma) %>%
+  summarise(freq = sum(`Dardos recolectados por síntoma`))
 
-# Ordenar resultados
-resultados_2 <- resultados_2 %>% arrange(p_valor)
-#según momento de colecta
-print(resultados_2)
+# Convertís a tabla cruzada (matriz de contingencia)
+dt_5 <- xtabs(freq ~ nivel_manejo + sintoma, data = freq_t5)
+
+# Test chi²
+test <- chisq.test(dt_5)
+p_valor <- round(test$p.value, digits = 4)
+print(test)
+
+
+# Usás la tabla cruzada que creaste con xtabs:
+jpeg("graf/balloonplot_manejo.jpeg", width = 4000, height = 3000, res = 400)
+
+balloonplot(t(dt_5), 
+            main = "Frecuencia de síntomas por nivel de manejo",
+            xlab = "Sintoma", 
+            ylab = "Nivel de manejo",
+            label = T, 
+            show.margins = FALSE)
+# Agregar leyenda con resultado global
+legend("topleft", 
+       legend = paste0("χ² = ", chi2_val, ", p = ", p_valor),
+       bty = "n", cex = 0.8)
+dev.off()
+
+######################################
+freq_t6 <- tabla %>%
+  filter(sintoma != "S/S") %>% 
+  group_by(estacion, sintoma) %>%
+  summarise(freq = sum(`Dardos recolectados por síntoma`))
+
+# Convertís a tabla cruzada (matriz de contingencia)
+dt_6 <- xtabs(freq ~ estacion + sintoma, data = freq_t6)
+
+# Test chi²
+test <- chisq.test(dt_6)
+p_valor <- round(test$p.value, digits = 4)
+print(test)
+
+
+# Usás la tabla cruzada que creaste con xtabs:
+jpeg("graf/balloonplot_estacion.jpeg", width = 4000, height = 3000, res = 400)
+
+balloonplot(t(dt_6), 
+            main = "Frecuencia de síntomas por nivel de manejo",
+            xlab = "Sintoma", 
+            ylab = "Nivel de manejo",
+            label = T, 
+            show.margins = FALSE)
+# Agregar leyenda con resultado global
+legend("topleft", 
+       legend = paste0("χ² = ", chi2_val, ", p = ", p_valor),
+       bty = "n", cex = 0.8)
+dev.off()
+
+
+
 
 
 
