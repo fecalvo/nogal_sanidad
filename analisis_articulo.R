@@ -8,7 +8,9 @@ library(multcomp)
 library(reshape2)
 
 #leer tabla original (hice algunas modificaciones agregando 0s)
-tabla <- readxl::read_excel("tablas/relevamiento.xlsx")
+tabla <- readxl::read_excel("tablas/relevamiento.xlsx") 
+
+# Flor, esto es una prueba
 
 ######################################
 
